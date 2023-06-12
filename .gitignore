@@ -1,3 +1,7 @@
 .vscode/
 .git/
 *.exe
+build/
+output/
+*.cmake
+*.stackdump

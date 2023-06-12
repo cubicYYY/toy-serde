@@ -45,7 +45,7 @@ Class serialization needs can be of different scales: just a few integers of a t
 For different needs, we provide following ways to satisfy them:  
 + Fallback/default solution: raw binary data shallow copy (platform dependent)
 	+ May not be portable: type size varies between platforms!
-	+ little-endian and big-endian is automatically determined!
+	+ little-endian and big-endian is automatically determined! (TODO)
 
 + For deep serialization / custom needs:
 	+ using special template method `serde` to implement `serdeable` trait, and
