@@ -49,7 +49,7 @@ namespace BinSerde { // concepts
     };
 
     template <typename T>
-    concept is_map_like = container<T> && requires(T x) { // k-v containers, AKA map/unordered_map in STL library
+    concept is_map_like = container<T> && requires(T x) { // k-v containers, A.K.A. map/unordered_map in STL library
         std::same_as<typename T::value_type, std::pair<typename T::key_type, typename T::mapped_type> >;
     };
 
@@ -88,6 +88,7 @@ namespace BinSerde { // classes
     template <typename T>
     class BinSerdeInterface
     {
+    public:
         BinSerdeInterface() = default;
         void operator&(T a) { static_assert("Not implemented"); };
         void operator<<(T a) { static_assert("Not implemented"); };

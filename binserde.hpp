@@ -1,40 +1,9 @@
 #pragma once
- // compile time type checkings
+// compile time type checkings
 #include "common.hpp"
 #include <memory>
 namespace BinSerde
 {
-    template <typename T>
-    class BinSer : public BinSerdeInterface<T> // Binary serialization
-    {
-        using Bufs = std::vector<std::unique_ptr<byte*>>;
-    public:
-        BinSer() 
-        {
-            bufs.clear();
-            it = bufs.begin();
-        }
-        void operator&(T rhs)
-        {
-
-        }
-
-        template <serdeable_class U>
-        void operator<<(U rhs)
-        {
-            rhs.serde(this);
-        }
-        Bufs bufs;
-        Bufs::iterator it;
-    };
-
-    template <typename T>
-    class BinDe : public BinSerdeInterface<T> // Binary deserialization
-    {
-        void operator&(T &rhs)
-        {
-        }
-    };
 
     namespace CustomSerde
     {
@@ -46,12 +15,22 @@ namespace BinSerde
         // if actual=true, then actually write to the buffer;
         // otherwise, just return the size.
         // This is useful for pre-checking of the size before performing serialization.
-        template <simple T> int serialize2buf(byte *buf, const T &object, bool actual = true);
-        template <is_pair_like T> int serialize2buf(byte *buf, const T &object, bool actual = true);
-        template <is_pointer_like T> int serialize2buf(byte *buf, const T &object, bool actual = true);
+        template <typename T>
+        class BinSer; // class for
+        template <simple T>
+        int serialize2buf(byte *buf, const T &object, bool actual = true);
+        template <is_pair_like T>
+        int serialize2buf(byte *buf, const T &object, bool actual = true);
+        template <is_pointer_like T>
+        int serialize2buf(byte *buf, const T &object, bool actual = true);
         // template <is_map_like T> int serialize2buf(byte *buf, const T &object, bool actual = true);
-        template <container T> int serialize2buf(byte *buf, const T &object, bool actual = true);
-        template <typename T> int serialize2buf(byte *buf, const SizedPair<T> &sp, bool actual = true);
+        template <container T>
+        int serialize2buf(byte *buf, const T &object, bool actual = true);
+        template <typename T>
+        int serialize2buf(byte *buf, const SizedPair<T> &sp, bool actual = true);
+
+        template <serdeable_class T>
+        int serialize2buf(byte *buf, T &&object, bool actual = true); // !Not const for this
 
         template <simple T>
         int serialize2buf(byte *buf, const T &object, bool actual)
@@ -74,12 +53,12 @@ namespace BinSerde
         }
 
         template <is_pointer_like T>
-        int serialize2buf(byte *buf, const T &object, bool actual) 
+        int serialize2buf(byte *buf, const T &object, bool actual)
         {
             std::cout << "ser ptr" << std::endl;
             return serialize2buf(buf, (*object), actual);
         }
-        
+
         template <typename T>
         int serialize2buf(byte *buf, const SizedPair<T> &sp, bool actual)
         {
@@ -105,14 +84,54 @@ namespace BinSerde
             }
             return size;
         }
+
+        template <serdeable_class T>
+        int serialize2buf(byte *buf, T &&object, bool actual)
+        {
+            std::cout << "ser OBJ" << std::endl;
+            auto archive = BinSerde::BinSer<T>(buf, actual, std::size_t(0));
+            object.serde(archive);
+            return archive.cursor;
+        }
+
+        template <typename T>
+        class BinSer : public BinSerdeInterface<T> // Binary serialization
+        {
+        public:
+            BinSer(byte *buf = nullptr, bool ready = false, std::size_t cursor = 0) : buf(buf), ready(ready), cursor(cursor) {}
+            ~BinSer() = default;
+
+            template <typename U>
+            BinSer<T> operator&(const U &rhs)
+            {
+                BinSer<T> tmp(buf, ready, cursor);
+                cursor += serialize2buf(buf + cursor, rhs, ready);
+                tmp.cursor = cursor;
+                return tmp;
+            }
+
+        public:
+            byte *buf{nullptr}; // expose this buf to write back
+            bool ready{false};
+            std::size_t cursor{0};
+        };
     }
     inline namespace Deserialization
-    {   
-        template <simple T> int deserialize_from(byte *buf, T &object);
-        template <is_pair_like T> int deserialize_from(byte *buf, T &object);
-        template <is_pointer_like T> int deserialize_from(byte *buf, const T &object);
-        template <is_map_like T> int deserialize_from(byte *buf, const T &object);
-        template <is_normal_container T> int deserialize_from(byte *buf, T &object);
+    {
+        template <typename T>
+        class BinDe;
+        template <simple T>
+        int deserialize_from(byte *buf, T &object);
+        template <is_pair_like T>
+        int deserialize_from(byte *buf, T &object);
+        template <is_pointer_like T>
+        int deserialize_from(byte *buf, const T &object);
+        template <is_map_like T>
+        int deserialize_from(byte *buf, const T &object);
+        template <is_normal_container T>
+        int deserialize_from(byte *buf, T &object);
+        template <serdeable_class T>
+        int deserialize_from(byte *buf, T &&object);
 
         template <simple T>
         int deserialize_from(byte *buf, T &object)
@@ -131,12 +150,6 @@ namespace BinSerde
             return size;
         }
 
-        template <is_pointer_like T>
-        int serialize2buf(byte *buf, const T &object) 
-        {
-            return serialize2buf(buf, (*object));
-        }
-        
         // NOTE: We break the container concept into 2 parts: is_map_like(k-v) or is_normal_container(single value)
         // Reasons: see is_normal_container func.
         template <is_map_like T>
@@ -145,9 +158,10 @@ namespace BinSerde
             int cnt;
             int size = 0;
             size += deserialize_from(buf, cnt);
-            for (int i=0;i<cnt;i++) {
-                std::remove_const_t<typename T::key_type> key_deconst; 
-                std::remove_const_t<typename T::mapped_type> value_deconst; 
+            for (int i = 0; i < cnt; i++)
+            {
+                std::remove_const_t<typename T::key_type> key_deconst;
+                std::remove_const_t<typename T::mapped_type> value_deconst;
                 size += deserialize_from(buf + size, key_deconst);
                 size += deserialize_from(buf + size, value_deconst);
                 object.insert(object.end(), std::make_pair(key_deconst, value_deconst));
@@ -161,15 +175,57 @@ namespace BinSerde
             int cnt;
             int size = 0;
             size += deserialize_from(buf, cnt);
-            for (int i=0;i<cnt;i++) {
-                typename T::value_type elem; 
-                // NOTE: this works for most containers, but for some containers like `map`, it returns a k-v pair 
+            for (int i = 0; i < cnt; i++)
+            {
+                typename T::value_type elem;
+                // NOTE: this works for most containers, but for some containers like `map`, it returns a k-v pair
                 // where the key is a const type. Then this function fails.
                 size += deserialize_from(buf + size, elem);
                 object.insert(object.end(), elem);
             }
             return size;
         }
+
+        template <serdeable_class T>
+        int deserialize_from(byte *buf, T &&object)
+        {
+            std::cout << "de OBJ" << std::endl;
+            auto archive = BinSerde::BinDe<T>(buf, 0);
+            object.serde(archive);
+            return archive.cursor;
+        }
+
+        template <is_pointer_like T> // smart pointers
+        int deserialize_from(byte *buf, T &&object)
+        {
+            int size = 0;
+            typename std::remove_reference_t<T>::element_type item; // get the inside element
+            size += deserialize_from(buf, item);
+            // re-allocate and initialize
+            object.reset(new typename std::remove_reference_t<T>::element_type(std::move(item))); 
+            return size;
+        }
+
+
+        template <typename T>
+        class BinDe : public BinSerdeInterface<T> // Binary deserialization
+        {
+        public:
+            BinDe(byte *buf = nullptr, std::size_t cursor = 0) : buf(buf), cursor(cursor) {}
+
+            template <typename U>
+            BinDe<T> operator&(U &rhs)
+            {
+                BinDe<T> tmp(buf, cursor);
+                cursor += deserialize_from(buf + cursor, rhs);
+                tmp.cursor = cursor;
+                return tmp;
+            }
+
+        public:
+            byte *buf{nullptr};
+            std::size_t cursor{0};
+        };
     }
 
 }
