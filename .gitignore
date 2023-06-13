@@ -5,3 +5,5 @@ build/
 output/
 *.cmake
 *.stackdump
+CMakeFiles/
+*.sln
