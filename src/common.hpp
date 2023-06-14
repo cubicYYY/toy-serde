@@ -11,11 +11,13 @@
 #include <type_traits>
 
 namespace Serde{// flags
-const int SD_XML = 1; // use XML format(binary format if not specified) 
-const int SD_B64 = 2; // use base64 encoding(raw string if not specified), only applied to strings in XML 
+    using byte = char;
+const int SERDE_XML = 1; // use XML format(binary format if not specified) 
+const int SERDE_B64 = 2; // use base64 encoding(raw string if not specified), only applied to strings in XML 
 
-#define NVP(x) (NameValuePair(#x, x));
-        
+#define NVP(x) (Serde::NameValuePair(#x, &(x)));
+#define NAMED_NVP(x,y) (Serde::NameValuePair(#x, &(y)));
+
 template <typename T>
 concept simple = std::is_arithmetic_v<T>; // supported basic types (can recover from bytes array)
 
@@ -51,7 +53,7 @@ concept container = requires(T x) {
 
 template <typename T>
 concept is_map_like = container<T> && requires(T x) { // k-v containers, A.K.A. map/unordered_map in STL library
-    requires std::same_as<typename T::value_type, std::pair<typename T::key_type, typename T::mapped_type> >;
+    requires std::same_as<typename T::value_type, std::pair<typename std::add_const_t<typename T::key_type>, typename T::mapped_type> >;
 };
 
 template <typename T>
@@ -96,14 +98,13 @@ concept supported_type = serdeable_class<T> || simple<T> || is_any_of<T> || is_p
 template <typename T>
 class NameValuePair { // helper class to get the name of member variables
 public:
-    NameValuePair(auto name, auto value) : name(name), value(value) {}
+    NameValuePair(std::string name, T &value) : name(name), value(&value) {}
+    NameValuePair(std::string name, T* value) : name(name), value(value) {}
     std::string name;
-    T& value;
+    T* value;
 };
 
 namespace BinSerde { // classes
-    using byte = char;
-
 
     // we don't use the std::pair to avoid confusing multiple matches in template substitution
     template <typename T>
@@ -115,4 +116,23 @@ namespace BinSerde { // classes
     };
     
 }
+
+// utils for base64 encoding/decoding
+class B64Cache {
+public:
+    B64Cache() = default;
+    B64Cache(Serde::byte *buf) {
+
+    }
+    std::vector<void *> addr;
+};
+std::string b64_encode(Serde::byte *buf, int size)
+{
+}
+
+void b64_decode(Serde::byte *buf, std::string text)
+{
+
+}
+
 }

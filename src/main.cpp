@@ -9,75 +9,92 @@ using namespace Serde;
 class Test
 {
 public:
+    Test(int a, int b) : a(a), b(b) {fill_test_data();} // only construct complex containers before serialization
+    Test() = default;
     template <typename A>
     void serde(A &ar)
     {
-        ar &a;
-        ar &b;
+        ar &NVP(a); // ! If you don't need a XML serialization, you can ever omit the NVP()
+        //ar &a;
+        ar &NAMED_NVP(InternetOverdose, b); // custom name
+        ar &NVP(complex1);
+        ar &NVP(complex2);
+        ar &NVP(pair_cb);
     }
-    Test(int a, int b) : a(a), b(b) {}
-    Test() = default;
+    void fill_test_data()
+    {
+        a=6657;
+        b=13579.02468;
+        complex1.clear();
+        complex1.emplace_back(map<string,string>{});
+        complex1.back().insert({"Nana7mi", "-JinShi-"});
+
+        complex2.push_back(set<int>{114,514,114,514});
+    }
+    bool operator==(Test rhs) const {
+        return (a==rhs.a) && (b==rhs.b) && (complex1==rhs.complex1) && 
+            (complex2 == rhs.complex2) && (pair_cb==rhs.pair_cb);
+    }
 public:
+    vector<map<string,string>> complex1;
+    list<set<int>> complex2;
+    pair<char, bool> pair_cb{'g', true};
     int a{1};
-    int b{2};
+    double b{2.0};
 };
 int main()
 {
-    char buf[16384];
-
-    // ==============================================basic types and nested containers, raw interfaces(NOT encapsulated)
+    // ================================================================================basic types and nested containers
     string sa = "112233";
     string sb;
-    BinSerde::serialize2buf((BinSerde::byte *)buf, sa);
-    BinSerde::deserialize_from((BinSerde::byte *)buf, sb);
-    assert(sa == sb);
+    BinSerde::serialize(sa, "test.data");
+    BinSerde::deserialize(sb, "test.data");
     cout << sb << endl;
+    assert(sa == sb);
 
     auto ia = 1;
     int ib;
-    BinSerde::serialize2buf((BinSerde::byte *)buf, ia);
-    BinSerde::deserialize_from((BinSerde::byte *)buf, ib);
-    assert(ia == ib);
+    BinSerde::serialize(ia, "test.data");
+    BinSerde::deserialize(ib, "test.data");
     cout << ib << endl;
+    assert(ia == ib);
 
     pair<string, int> pa = make_pair("114", 514);
     pair<string, int> pb;
-    BinSerde::serialize2buf((BinSerde::byte *)buf, pa);
-    BinSerde::deserialize_from((BinSerde::byte *)buf, pb);
+    BinSerde::serialize(pa, "test.data");
+    BinSerde::deserialize(pb, "test.data");
     assert(pa == pb);
     cout << "(" << pb.first << "," << pb.second << ")" << endl;
 
     vector<vector<string>> vva{vector<string>{"Girimi", "Mahiru", "Nana7mi", "Azusa"},
                                vector<string>{"21", "22", "23", "24"}};
     vector<vector<string>> vvb;
-    BinSerde::serialize2buf((BinSerde::byte *)buf, vva);
-    BinSerde::deserialize_from((BinSerde::byte *)buf, vvb);
+    BinSerde::serialize(vva, "test.data");
+    BinSerde::deserialize(vvb, "test.data");
     assert(vva == vvb);
     cout << vvb[0][2] << endl;
 
     set<string> seta{"this", "is", "a", "container", "in", "a", "set"};
     set<string> setb;
-    BinSerde::serialize2buf((BinSerde::byte *)buf, seta);
-    BinSerde::deserialize_from((BinSerde::byte *)buf, setb);
+    BinSerde::serialize(seta, "test.data");
+    BinSerde::deserialize(setb, "test.data");
     assert(seta == setb);
     cout << setb.count("set") << endl;
-
-    Test recovered = Test();
-    BinSerde::serialize2buf((BinSerde::byte *)buf, Test(3,4));
-    BinSerde::deserialize_from((BinSerde::byte *)buf, recovered);
-    cout << recovered.a << " " << recovered.b << endl;
-    
-    auto suia = std::unique_ptr<int>(new int(666));
-    auto suib = std::unique_ptr<int>(new int(111));
-    BinSerde::serialize2buf((BinSerde::byte *)buf, suia);
-    BinSerde::deserialize_from((BinSerde::byte *)buf, suib);
-    assert(*suib == 666);
-    cout << (*suib) << endl;
     // -----------------------------------------------------------------------------------------------------------------
 
-    // ==========================================================================custom classes, encapsulated interfaces
-
+    // ===========================================================================================custom classes, Binary
+    // !NOTE: testing this custom class is equal to testing ALL the supported types acquired!
+    // including NESTED containers, pairs, smart pointers...
+    auto to_be_serialized = Test();
+    to_be_serialized.fill_test_data(); // fill-in the initial value for tests
+    if (!BinSerde::serialize(to_be_serialized, "test_custom.data"))
+        cout<<"failed:ser"<<endl;
+    auto recovered = Test();
+    if (!BinSerde::deserialize(recovered, "test_custom.data"))
+        cout<<"failed:deser"<<endl;
+    assert(to_be_serialized == recovered);
     // -----------------------------------------------------------------------------------------------------------------
-    // ======================================================================+smart pointers, Binary or XML(with Base64)
+    // ===================================================================custom classes, XML(with (or not with) Base64)
+    // -----------------------------------------------------------------------------------------------------------------
     return 0;
 }

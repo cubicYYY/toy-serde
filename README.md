@@ -59,7 +59,7 @@ For different needs, we provide following ways to satisfy them:
 We have some meta datas to store, and multiple objects to track. So here's the format manual. Number in brackets indicates the size of the segment (in bytes).  
 Global: `|Header|Field1|Field2|...|FieldN|`
 + `Header` part:  
-`|MagicNum(4)|Version(4)|Flags(4)|FieldCounts(4)|`    
+`|MagicNum(4)|Version(4)|Flags(4)|DataSize(4)|`    
 
 	The `MagicNum` segment : always equals to `0x21452505`. Used to check if the file is valid, **and indicates the platform endian property.**  
 	The `version` segment allows us to read old data, when the format is changed in future versions.  
@@ -80,13 +80,12 @@ Flexible length, can be of 2 types:
 
 ## Output
 We use different flags to decide the representation of datas. You can use bitwise or `|` to specify multiple flags.
-+ `S_XML` : to xml file  
-+ `S_BIN` : to binary file  
-+ `S_RAW` : raw binary encoding  
-+ `S_B64` : Base64 encoding(Only valid if `S_XML` flag is set; otherwise ignored)  
++ `S_XML` : to XML file if set, otherwise to binary
++ `S_B64` : Base64 encoding
 NOTE:  
- `S_BIN` with `S_B64` will only apply Base64 encoding to  `std::string` and `char *` or smart pointers for them;  
-
+`S_XML` with `S_B64` will only apply Base64 encoding to  `std::string` (itself or sth. contains it);    
+Otherwise the whole file will be stored in Base64 pure text format.
 
 # References
-+ [https://isocpp.org/wiki/faq/serialization](https://isocpp.org/wiki/faq/serialization)
++ Underlying principles: [Serialization and Unserialization, C++ FAQ](https://isocpp.org/wiki/faq/serialization)
++ Interfaces design is inspired by: [儲存 C++ 的類別資料：Boost Serialization（part 1）](https://viml.nchc.org.tw/archive_blog_760/)
