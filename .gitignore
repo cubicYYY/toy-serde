@@ -1,6 +1,7 @@
 .vscode/
 .git/
 *.exe
+bin/
 build/
 output/
 *.cmake

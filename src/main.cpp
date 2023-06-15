@@ -6,41 +6,49 @@
 #include <cassert>
 using namespace std;
 using namespace Serde;
-class Test
+using namespace tinyxml2;
+class Test // All-in-one test class!
 {
 public:
-    Test(int a, int b) : a(a), b(b) {fill_test_data();} // only construct complex containers before serialization
+    Test(int a, int b) : a(a), b(b) { fill_test_data(); } // only construct complex containers before serialization
     Test() = default;
     template <typename A>
-    void serde(A &ar)
+    void serde(A& ar)
     {
-        ar &NVP(a); // ! If you don't need a XML serialization, you can ever omit the NVP()
-        //ar &a;
-        ar &NAMED_NVP(InternetOverdose, b); // custom name
-        ar &NVP(complex1);
-        ar &NVP(complex2);
-        ar &NVP(pair_cb);
+        ar& NVP(a); // ! If you don't need a XML serialization, you can ever omit the NVP()
+        //Can even: ar &a &b &c &d;
+        ar& NAMED_NVP(InternetOverdose, b); // custom name
+        ar& NVP(complex1);
+        ar& NVP(complex2);
+        ar& NVP(pair_cb);
+        ar& NVP(smartptr);
     }
     void fill_test_data()
     {
-        a=6657;
-        b=13579.02468;
+        a = 6657;
+        b = 13579.02468;
         complex1.clear();
-        complex1.emplace_back(map<string,string>{});
-        complex1.back().insert({"Nana7mi", "-JinShi-"});
+        complex1.emplace_back(map<string, string>{});
+        complex1.back().insert({ "Nana7mi's dog", "-JinShi- *&^#$#<>!" });
+        complex1.emplace_back(map<string, string>{});
+        complex1.back().insert({ "Nana7mi's dog", "-JinShi- *&^#$#<>!" });
 
-        complex2.push_back(set<int>{114,514,114,514});
+        complex2.push_back(set<int>{114, 514, 114, 514});
+
+        smartptr.reset(new int{ 1982 });
+        pair_cb = std::make_pair('g', true);
     }
     bool operator==(Test rhs) const {
-        return (a==rhs.a) && (b==rhs.b) && (complex1==rhs.complex1) && 
-            (complex2 == rhs.complex2) && (pair_cb==rhs.pair_cb);
+        return (a == rhs.a) && (b == rhs.b) && (complex1 == rhs.complex1) &&
+            (complex2 == rhs.complex2) && (pair_cb == rhs.pair_cb);
     }
 public:
-    vector<map<string,string>> complex1;
+    vector<map<string, string>> complex1;
     list<set<int>> complex2;
     pair<char, bool> pair_cb{'g', true};
-    int a{1};
-    double b{2.0};
+    shared_ptr<int> smartptr;
+    int a{ 1 };
+    double b{ 2.0 };
 };
 int main()
 {
@@ -67,7 +75,7 @@ int main()
     cout << "(" << pb.first << "," << pb.second << ")" << endl;
 
     vector<vector<string>> vva{vector<string>{"Girimi", "Mahiru", "Nana7mi", "Azusa"},
-                               vector<string>{"21", "22", "23", "24"}};
+        vector<string>{"21", "22", "23", "24"}};
     vector<vector<string>> vvb;
     BinSerde::serialize(vva, "test.data");
     BinSerde::deserialize(vvb, "test.data");
@@ -80,6 +88,12 @@ int main()
     BinSerde::deserialize(setb, "test.data");
     assert(seta == setb);
     cout << setb.count("set") << endl;
+
+    string b64s = "yyy's C++20 Lab!"; // base64 test
+    string b64ed;
+    cout << (b64ed = Serde::b64encode((unsigned char*)b64s.c_str(), b64s.size())) << endl;
+    cout << Serde::b64decode((unsigned char*)b64ed.c_str(), b64ed.size()) << endl;
+
     // -----------------------------------------------------------------------------------------------------------------
 
     // ===========================================================================================custom classes, Binary
@@ -88,13 +102,41 @@ int main()
     auto to_be_serialized = Test();
     to_be_serialized.fill_test_data(); // fill-in the initial value for tests
     if (!BinSerde::serialize(to_be_serialized, "test_custom.data"))
-        cout<<"failed:ser"<<endl;
+        cout << "failed:ser" << endl;
     auto recovered = Test();
     if (!BinSerde::deserialize(recovered, "test_custom.data"))
-        cout<<"failed:deser"<<endl;
+        cout << "failed:deser" << endl;
+    assert(to_be_serialized == recovered);
+
+
+
+    to_be_serialized.fill_test_data();
+    if (!BinSerde::serialize(to_be_serialized, "test_b64.data", SERDE_B64))
+        cout << "failed:ser" << endl;
+    recovered = Test();
+    if (!BinSerde::deserialize(recovered, "test_b64.data", SERDE_B64))
+        cout << "failed:deser" << endl;
     assert(to_be_serialized == recovered);
     // -----------------------------------------------------------------------------------------------------------------
+
     // ===================================================================custom classes, XML(with (or not with) Base64)
+    // XML: no Base64, internal API
+    XMLDocument doc;
+    doc.InsertEndChild(doc.NewElement("myname"));
+    auto xml_test = Test();
+    xml_test.fill_test_data();
+    XmlSerde::serialize2xml(doc, doc.RootElement(), xml_test);
+
+    auto xml_recovered = Test();
+    XmlSerde::deserialize_from(doc.RootElement()->FirstChildElement(), xml_recovered);
+    assert(xml_test == xml_recovered);
+    // ====================================================================================XML: Base64, encapsulated API
+    xml_test.fill_test_data();
+    XmlSerde::serialize(xml_test, "xmlb64", "test_final.xml", SERDE_B64);
+    xml_recovered = Test();
+    XmlSerde::deserialize(xml_recovered, "xmlb64", "test_final.xml", SERDE_B64);
+    assert(xml_test == xml_recovered);
     // -----------------------------------------------------------------------------------------------------------------
+    cout<<"Tests Passed!!!"<<endl;
     return 0;
 }
