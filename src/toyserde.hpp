@@ -53,7 +53,7 @@ namespace Serde::BinSerde {
     }
 
     template <typename T>
-    bool deserialize(T& object, std::string filename, int flags = 0)
+    bool deserialize(T&& object, std::string filename, int flags = 0)
     {
         // 1. Decode the header field (for metadata)
         // 2. Recursively deserialize
@@ -70,7 +70,7 @@ namespace Serde::BinSerde {
             auto buf = new Serde::byte[data_size + 1];
             fin.read((char*)buf, data_size);
             std::string recovered = Serde::b64decode((unsigned char*)buf, data_size);
-            Serde::BinSerde::deserialize_from((Serde::byte*)recovered.c_str(), object);
+            Serde::BinSerde::deserialize_from((Serde::byte*)recovered.c_str(), std::forward<T>(object));
             fin.close();
             return true;
         }
@@ -97,19 +97,20 @@ namespace Serde::BinSerde {
         int data_size = header[3];
         auto buf = new Serde::byte[data_size + 1];
         fin.read((char*)buf, data_size);
-        Serde::BinSerde::deserialize_from(buf, object);
+        Serde::BinSerde::deserialize_from(buf, std::forward<T>(object));
         fin.close();
         return true;
     }
 }
 
 namespace Serde::XmlSerde {
+    // TODO: appending mode to save multiple data in one file :)
     template <typename T>
     bool serialize(T&& object, const char* obj_name, const char* filename, int flags = 0)
     {
         tinyxml2::XMLDocument doc;
-        doc.InsertEndChild(doc.NewElement(obj_name));
-        serialize2xml(doc, doc.RootElement(), object, "object", flags);
+        doc.InsertEndChild(doc.NewElement("serialization"));
+        serialize2xml(doc, doc.RootElement(), std::forward<T>(object), obj_name, flags);
         // tinyxml2::XMLPrinter printer;
         // doc.Accept( &printer );
         // std::string stringBuffer = printer.CStr();
@@ -118,11 +119,11 @@ namespace Serde::XmlSerde {
     }
 
     template <typename T>
-    bool deserialize(T& object, [[maybe_unused]]const char* obj_name, const char* filename, int flags = 0)
+    bool deserialize(T&& object, [[maybe_unused]] const char* obj_name, const char* filename, int flags = 0)
     {
         tinyxml2::XMLDocument doc;
         if (doc.LoadFile(filename) != tinyxml2::XML_SUCCESS) return false;
-        deserialize_from(doc.RootElement()->FirstChildElement(), object, flags);
+        deserialize_from(doc.RootElement()->FirstChildElement(), std::forward<T>(object), flags);
         // tinyxml2::XMLPrinter printer;
         // doc.Accept( &printer );
         // std::string stringBuffer = printer.CStr();

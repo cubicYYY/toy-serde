@@ -57,7 +57,7 @@ namespace Serde::BinSerde {
         {
             return serialize2buf(buf, (*object), actual);
         }
-    
+
 
         template <container T>
         int serialize2buf(Serde::byte* buf, const T& object, bool actual)
@@ -71,7 +71,7 @@ namespace Serde::BinSerde {
             }
             return size;
         }
-       
+
         template <typename T>
         int serialize2buf(Serde::byte* buf, const SizedPair<T> sp, bool actual)
         {
@@ -165,9 +165,10 @@ namespace Serde::BinSerde {
         template <is_map_like T>
         int deserialize_from(Serde::byte* buf, T& object)
         {
-            int cnt;
+            int cnt = 0;
             int size = 0;
             size += deserialize_from(buf, cnt);
+            try2reserve(object, cnt); // !optimized :)
             for (int i = 0; i < cnt; i++)
             {
                 typename std::remove_const_t<typename T::key_type> key_deconst;
@@ -182,9 +183,10 @@ namespace Serde::BinSerde {
         template <is_normal_container T>
         int deserialize_from(Serde::byte* buf, T& object)
         {
-            int cnt;
+            int cnt = 0;
             int size = 0;
             size += deserialize_from(buf, cnt);
+            try2reserve(object, cnt); // !optimized :)
             for (int i = 0; i < cnt; i++)
             {
                 typename std::remove_const_t<typename T::value_type> elem;
@@ -220,15 +222,15 @@ namespace Serde::BinSerde {
         {
             return deserialize_from(buf, *(object.value));
         }
-        
+
         template <typename T>
         int deserialize_from(Serde::byte* buf, SizedPair<T> object)
         {
             int size = 0;
-            int cnt;
-            size += deserialize_from(buf, cnt);
-            for (int i=0;i<cnt;i++)
-                size += deserialize_from(buf, *(object.elem + i));
+            std::size_t cnt;
+            size += deserialize_from(buf + size, cnt);
+            for (int i = 0;i < cnt;i++)
+                size += deserialize_from(buf + size, *(object.elem + i));
             return size;
         }
 

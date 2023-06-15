@@ -18,6 +18,17 @@ CMakeLists.txt for CMake has been configured in the environment mentioned above.
 Usage of smart pointers are encouraged: more infos, less verbose, and less errors.
 
 # Usage
+## Compiling
+(May varies from platform to platform, you may need some tweaks.)
+```shell
+mkdir build
+cd ./build
+mkdir bin
+cmake ..
+make
+./bin/main
+```
+
 ## Single Variable
 Including containers and smart pointers.
 + For datas with const size, just call serialize functions directly. 
@@ -28,6 +39,25 @@ Including containers and smart pointers.
 + See examples followed for more details.
 
 # Quick Start with Examples 
++ Raw array, xml:
+	```cpp
+	int cc[5] = {2,4,6,8,10};
+    int dd[5];
+    XmlSerde::serialize(SizedPair((int*)&cc, 5), "sized_pair", "test.xml");
+    XmlSerde::deserialize(SizedPair((int*)&dd, 5), "sized_pair", "test.xml");
+	```
+	Result XML:
+	```xml
+	<serialization>
+		<sized_pair>
+			<raw val="2"/>
+			<raw val="4"/>
+			<raw val="6"/>
+			<raw val="8"/>
+			<raw val="10"/>
+		</sized_pair>
+	</serialization>
+	```
 + Single var, output as a binary file:
 	```cpp
 	string sa = "112233";
@@ -94,6 +124,44 @@ Including containers and smart pointers.
 	XmlSerde::deserialize(recovered, "my_class", "test_b64.data", SERDE_B64);
 	assert(to_be_serialized==recovered);
 	```
+	Result XML:
+	```xml
+	<serialization>
+		<xmlb64>
+			<a val="6657"/>
+			<InternetOverdose val="13579.02468"/>
+			<complex1>
+				<item>
+					<item>
+						<first>TmFuYTdtaSdzIGRvZw==</first>
+						<second>LUppblNoaS0gKiZeIyQjPD4h</second>
+					</item>
+				</item>
+				<item>
+					<item>
+						<first>TmFuYTdtaSdzIGRvZw==</first>
+						<second>LUppblNoaS0gKiZeIyQjPD4h</second>
+					</item>
+				</item>
+			</complex1>
+			<complex2>
+				<item>
+					<item val="114"/>
+					<item val="514"/>
+				</item>
+				<item>
+					<item val="114"/>
+					<item val="514"/>
+				</item>
+			</complex2>
+			<pair_cb>
+				<first val="103"/>
+				<second val="true"/>
+			</pair_cb>
+			<smartptr val="1982"/>
+		</xmlb64>
+	</serialization>
+	```
 
 # Technical Details and Advanced Usage
 
@@ -108,8 +176,10 @@ The simplest, the best (IMO).
 ## Supported Basic Types
 WYSIWYG.
 
-## Array
-We strongly encourage you to use STL container `std::array`. But if you really need it, you can use `SizedPair` to wrap it.(TODO)    
+## Containers
+We will try to `reserve(size)` space for a container if possible.  
+## Raw Array
+We strongly encourage you to use STL container `std::array` instead. But if you really need the raw array, you can use `SizedPair` to wrap it.    
 This also works for multidimensional arrays or dynamic sized array.   
 Remember to cast the array to the most basic underlying type(e.g. `int[10][20][30]` -> `int *`, with size=`10*20*30=6000`).
 

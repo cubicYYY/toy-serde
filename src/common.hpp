@@ -97,6 +97,21 @@ namespace Serde {// flags
     concept supported_type = serdeable_class<T> || simple<T> || is_any_of<T> || is_pair_like<T> ||
         is_pointer_like<T> || container<T>;
 
+    // Helper utils, reserve space for a container if possible.
+    template <typename T>
+    concept can_reserve = requires (T x) {
+        x.reserve(0);
+    };
+
+    template <typename T> // can reserve: reserve and return true
+        requires (can_reserve<T>)
+    bool try2reserve(T&& container, std::size_t n) { container.reserve(n); return true; };
+
+    template <typename T> // otherwise do nothing but return false
+        requires (!can_reserve<T>)
+    bool try2reserve(T&& container, std::size_t n) { return false; };
+
+    // Helper classes
     template <typename T>
     class NameValuePair { // helper class to get the name of member variables
     public:
@@ -110,12 +125,13 @@ namespace Serde {// flags
     template <typename T>
     class SizedPair { // !not type-safe, take it carefully...
     public:
-        SizedPair(auto elem, auto size) : elem(elem), size(size) {}
+        SizedPair(T* elem, std::size_t size) : elem(elem), size(size) {}
+        SizedPair(T& elem, std::size_t size) : elem(&elem), size(size) {}
         T* elem{ nullptr };
         std::size_t size{0}; // elements count
     };
 
-    
+
 
     // utils for base64 encoding/decoding
     // Author: Jouni Malinen

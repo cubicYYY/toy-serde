@@ -46,7 +46,7 @@ namespace Serde::XmlSerde {
 
         // implementations
         template <simple T>
-        void serialize2xml(XMLDocument& doc, XMLElement* parent, const T& object, const char* key_name, [[maybe_unused]]int flags)
+        void serialize2xml(XMLDocument& doc, XMLElement* parent, const T& object, const char* key_name, [[maybe_unused]] int flags)
         {
             XMLElement* element = doc.NewElement(key_name ? key_name : "basic");
             element->SetAttribute("val", object);
@@ -188,14 +188,14 @@ namespace Serde::XmlSerde {
         // implementations
         template <simple T>
             requires (!is_any_of<typename std::remove_cv_t<typename std::remove_reference_t<T>>, char, unsigned char, bool>)
-        void deserialize_from(XMLElement* cur_element, T& object, [[maybe_unused]]int flags)
+        void deserialize_from(XMLElement* cur_element, T& object, [[maybe_unused]] int flags)
         {
             std::stringstream(cur_element->Attribute("val")) >> object; // how elegant I am!
         }
 
         template <typename T>
             requires (is_any_of<typename std::remove_cv_t<typename std::remove_reference_t<T>>, char, unsigned char>)
-        void deserialize_from(XMLElement* cur_element, T& object, [[maybe_unused]]int flags)
+        void deserialize_from(XMLElement* cur_element, T& object, [[maybe_unused]] int flags)
         {
             int tmp;
             std::stringstream(cur_element->Attribute("val")) >> tmp;
@@ -204,7 +204,7 @@ namespace Serde::XmlSerde {
 
         template <typename T>
             requires (is_any_of<typename std::remove_cv_t<typename std::remove_reference_t<T>>, bool>)
-        void deserialize_from(XMLElement* cur_element, T& object, [[maybe_unused]]int flags)
+        void deserialize_from(XMLElement* cur_element, T& object, [[maybe_unused]] int flags)
         {
             std::string tmp;
             std::stringstream(cur_element->Attribute("val")) >> tmp;
@@ -231,6 +231,10 @@ namespace Serde::XmlSerde {
             requires  (!is_str_like<T>) // exclude string type
         void deserialize_from(XMLElement* cur_element, T& object, int flags)
         {
+            int cnt = 0;
+            for (auto elem = cur_element->FirstChildElement();elem != nullptr;elem = elem->NextSiblingElement())
+                cnt++;
+            try2reserve(object, cnt); // !optimized here :)
             for (auto elem = cur_element->FirstChildElement();elem != nullptr;elem = elem->NextSiblingElement())
             {
                 typename std::remove_const_t<typename T::value_type> tmp_obj;
@@ -276,6 +280,16 @@ namespace Serde::XmlSerde {
             return deserialize_from(cur_element, *(object.value), flags);
         }
 
+        template <typename T>
+        void deserialize_from(XMLElement* cur_element, SizedPair<T> object, int flags)
+        {
+            int cnt = 0;
+            for (auto cur = cur_element->FirstChildElement(); cur != nullptr; cur = cur->NextSiblingElement()) {
+                deserialize_from(cur, *(object.elem + cnt), flags);
+                cnt++;
+            }
+        }
+
         template <serdeable_class T>
         void deserialize_from(XMLElement* cur_element, T& object, int flags)
         {
@@ -307,7 +321,7 @@ namespace Serde::XmlSerde {
             XMLElement* child{ nullptr };
         private:
             XMLElement* root{ nullptr };
-            int flags{0};
+            int flags{ 0 };
         };
     }
 

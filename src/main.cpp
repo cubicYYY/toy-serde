@@ -89,6 +89,18 @@ int main()
     assert(seta == setb);
     cout << setb.count("set") << endl;
 
+    int aa[5] = { 1,3,5,7,9 };
+    int bb[5];
+    BinSerde::serialize(SizedPair((int*)&aa, 5), "test.data");
+    BinSerde::deserialize(SizedPair((int*)&bb, 5), "test.data");
+    cout << bb[0] << " " << bb[1] << " " << bb[2] << " " << bb[3] << " " << bb[4] << " " << endl;
+
+    int cc[5] = { 2,4,6,8,10 };
+    int dd[5];
+    XmlSerde::serialize(SizedPair((int*)&cc, 5), "sized_pair", "test.xml");
+    XmlSerde::deserialize(SizedPair((int*)&dd, 5), "sized_pair", "test.xml");
+    cout << dd[0] << " " << dd[1] << " " << dd[2] << " " << dd[3] << " " << dd[4] << " " << endl;
+
     string b64s = "yyy's C++20 Lab!"; // base64 test
     string b64ed;
     cout << (b64ed = Serde::b64encode((unsigned char*)b64s.c_str(), b64s.size())) << endl;
@@ -137,6 +149,6 @@ int main()
     XmlSerde::deserialize(xml_recovered, "xmlb64", "test_final.xml", SERDE_B64);
     assert(xml_test == xml_recovered);
     // -----------------------------------------------------------------------------------------------------------------
-    cout<<"Tests Passed!!!"<<endl;
+    cout << "Tests Passed!!!" << endl;
     return 0;
 }
