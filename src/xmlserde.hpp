@@ -22,17 +22,17 @@ namespace Serde::XmlSerde {
         template <typename T>
         class XmlSer; // class for
         template <simple T>
-        void serialize2xml(XMLDocument& doc, XMLElement* parent, const T& object, const char* key_name = nullptr, int flags = 0);
+        void serialize2xml(XMLDocument& doc, XMLElement* parent, T&& object, const char* key_name = nullptr, int flags = 0);
         template <is_pair_like T>
-        void serialize2xml(XMLDocument& doc, XMLElement* parent, const T& object, const char* key_name = nullptr, int flags = 0);
+        void serialize2xml(XMLDocument& doc, XMLElement* parent, T&& object, const char* key_name = nullptr, int flags = 0);
         template <is_pointer_like T>
-        void serialize2xml(XMLDocument& doc, XMLElement* parent, const T& object, const char* key_name = nullptr, int flags = 0);
+        void serialize2xml(XMLDocument& doc, XMLElement* parent, T&& object, const char* key_name = nullptr, int flags = 0);
         template <container T> // we need to handle string separately
             requires  (!is_str_like<T>) // exclude string type
-        void serialize2xml(XMLDocument& doc, XMLElement* parent, const T& object, const char* key_name = nullptr, int flags = 0);
+        void serialize2xml(XMLDocument& doc, XMLElement* parent, T&& object, const char* key_name = nullptr, int flags = 0);
 
         template <is_str_like T> // special case of a container
-        void serialize2xml(XMLDocument& doc, XMLElement* parent, const T& object, const char* key_name = nullptr, int flags = 0);
+        void serialize2xml(XMLDocument& doc, XMLElement* parent, T&& object, const char* key_name = nullptr, int flags = 0);
 
         template <typename T>
         void serialize2xml(XMLDocument& doc, XMLElement* parent, SizedPair<T> sp, const char* key_name = nullptr, int flags = 0);
@@ -46,7 +46,7 @@ namespace Serde::XmlSerde {
 
         // implementations
         template <simple T>
-        void serialize2xml(XMLDocument& doc, XMLElement* parent, const T& object, const char* key_name, [[maybe_unused]] int flags)
+        void serialize2xml(XMLDocument& doc, XMLElement* parent, T&& object, const char* key_name, [[maybe_unused]] int flags)
         {
             XMLElement* element = doc.NewElement(key_name ? key_name : "basic");
             element->SetAttribute("val", object);
@@ -54,7 +54,7 @@ namespace Serde::XmlSerde {
         }
 
         template <is_pair_like T>
-        void serialize2xml(XMLDocument& doc, XMLElement* parent, const T& object, const char* key_name, int flags)
+        void serialize2xml(XMLDocument& doc, XMLElement* parent, T&& object, const char* key_name, int flags)
         {
             XMLElement* element = doc.NewElement(key_name ? key_name : "pair");
             serialize2xml(doc, element, object.first, "first", flags);
@@ -63,17 +63,17 @@ namespace Serde::XmlSerde {
         }
 
         template <is_pointer_like T>
-        void serialize2xml(XMLDocument& doc, XMLElement* parent, const T& object, [[maybe_unused]] const char* key_name, int flags)
+        void serialize2xml(XMLDocument& doc, XMLElement* parent, T&& object, [[maybe_unused]] const char* key_name, int flags)
         {
-            serialize2xml(doc, parent, (*object), key_name, flags); // just forward
+            serialize2xml(doc, parent, (*std::forward<T>(object)), key_name, flags); // just forward
         }
 
         template <container T>
             requires  (!is_str_like<T>)
-        void serialize2xml(XMLDocument& doc, XMLElement* parent, const T& object, const char* key_name, int flags)
+        void serialize2xml(XMLDocument& doc, XMLElement* parent, T&& object, const char* key_name, int flags)
         {
             XMLElement* element = doc.NewElement(key_name ? key_name : "container");
-            for (auto item : object)
+            for (auto&& item : object)
             {
                 serialize2xml(doc, element, item, "item", flags);
             }
@@ -81,7 +81,7 @@ namespace Serde::XmlSerde {
         }
 
         template <is_str_like T>
-        void serialize2xml(XMLDocument& doc, XMLElement* parent, const T& object, const char* key_name, int flags)
+        void serialize2xml(XMLDocument& doc, XMLElement* parent, T&& object, const char* key_name, int flags)
         {
             Serde::byte* buf = nullptr;
             XMLElement* element = doc.NewElement(key_name ? key_name : "str");
@@ -105,7 +105,7 @@ namespace Serde::XmlSerde {
         void serialize2xml(XMLDocument& doc, XMLElement* parent, const SizedPair<T> sp, const char* key_name, int flags)
         {
             XMLElement* element = doc.NewElement(key_name ? key_name : "sized_seg");
-            for (int ofs = 0; ofs < sp.size; ofs++)
+            for (auto ofs = 0u; ofs < sp.size; ofs++)
                 serialize2xml(doc, element, *(sp.elem + ofs), "raw", flags);
             parent->InsertEndChild(element);
         }
@@ -217,6 +217,12 @@ namespace Serde::XmlSerde {
             requires  (!is_str_like<T>) // exclude string type
         void deserialize_from(XMLElement* cur_element, T& object, int flags)
         {
+            int cnt = 0;
+            for (auto elem = cur_element->FirstChildElement();elem != nullptr;elem = elem->NextSiblingElement())
+                cnt++;
+            try2reserve(object, cnt); // !optimized here :)
+            // if the container can be reserved, then just do it for a better performance
+
             for (auto elem = cur_element->FirstChildElement(); elem != nullptr; elem = elem->NextSiblingElement())
             {
                 typename std::remove_const_t<typename T::key_type> key_deconst;
@@ -235,11 +241,14 @@ namespace Serde::XmlSerde {
             for (auto elem = cur_element->FirstChildElement();elem != nullptr;elem = elem->NextSiblingElement())
                 cnt++;
             try2reserve(object, cnt); // !optimized here :)
+            // if the container can be reserved, then just do it for a better performance
+
             for (auto elem = cur_element->FirstChildElement();elem != nullptr;elem = elem->NextSiblingElement())
             {
                 typename std::remove_const_t<typename T::value_type> tmp_obj;
                 // NOTE: this works for most containers, but for some containers like `map`, it returns a k-v pair
                 // where the key is a const type. Then this function fails.
+                // So the "is_normal_container" trait is to avoid this
                 deserialize_from(elem, tmp_obj, flags);
                 object.insert(object.end(), tmp_obj);
             }

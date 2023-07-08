@@ -20,28 +20,29 @@ namespace Serde {// flags
     const int SERDE_B64 = 2; // use base64 encoding(raw string if not specified), only applied to strings in XML 
 
 
+    // NOTE: we use `decay` to ignore const/volatile and refs
     template <typename T>
-    concept simple = std::is_arithmetic_v<T>; // supported basic types (can recover from bytes array)
+    concept simple = std::is_arithmetic_v<std::decay_t<T>>; // supported basic types (can recover from bytes array)
 
     template <typename T, typename... U>               // fold expressions
-    concept is_any_of = (std::is_same_v<T, U> || ...); // check if the type is any of the
+    concept is_any_of = (std::is_same_v<std::decay_t<T>, U> || ...); // check if the type is any of the
 
     template <typename T>
-    concept is_pair_like = std::same_as<T, std::pair<typename T::first_type, typename T::second_type>> ||
+    concept is_pair_like = std::same_as<std::decay_t<T>, std::pair<typename T::first_type, typename T::second_type>> ||
         requires (T x) { x.first; x.second; };
 
     template <typename T>
-    concept is_str_like = std::is_convertible_v<T, std::string_view>; // can convert to string view
+    concept is_str_like = std::is_convertible_v<std::decay_t<T>, std::string_view>; // can convert to string view
     // ... Also a container!
 
     template <typename T>
-    concept is_pointer_like = requires(T x) { // including support for smart pointers
+    concept is_pointer_like = requires(std::decay_t<T> x) { // including support for smart pointers
         (*x);
         x.get();
     };
 
     template <typename T>
-    concept container = requires(T x) {
+    concept container = requires(std::decay_t<T> x) {
         x.begin(); // iters
         x.end();
         x.cbegin(); // const iters
@@ -50,11 +51,11 @@ namespace Serde {// flags
         {
             x.empty()
         } -> std::same_as<bool>;
-        x.insert(x.end(), *(x.begin())); // can be inserted (! not push_back, forward_list is an exception)
+        x.insert(x.end(), *(x.begin())); // can be inserted (! not push_back; and forward_list is an exception)
     };
 
     template <typename T>
-    concept is_map_like = container<T> && requires(T x) { // k-v containers, A.K.A. map/unordered_map in STL library
+    concept is_map_like = container<T> && requires(std::decay_t<T> x) { // k-v containers, A.K.A. map/unordered_map in STL library
         requires std::same_as<typename T::value_type, std::pair<typename std::add_const_t<typename T::key_type>, typename T::mapped_type> >;
     };
 
@@ -109,7 +110,7 @@ namespace Serde {// flags
 
     template <typename T> // otherwise do nothing but return false
         requires (!can_reserve<T>)
-    bool try2reserve(T&& container, std::size_t n) { return false; };
+    bool try2reserve([[maybe_unused]]T&& container, [[maybe_unused]]std::size_t n) { return false; };
 
     // Helper classes
     template <typename T>
@@ -128,7 +129,7 @@ namespace Serde {// flags
         SizedPair(T* elem, std::size_t size) : elem(elem), size(size) {}
         SizedPair(T& elem, std::size_t size) : elem(&elem), size(size) {}
         T* elem{ nullptr };
-        std::size_t size{0}; // elements count
+        std::size_t size{ 0 }; // elements count
     };
 
 

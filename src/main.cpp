@@ -52,6 +52,12 @@ public:
 };
 int main()
 {
+    // =====================================================================================================rvalue serde
+    BinSerde::serialize(5, "test.data");
+    int rint_load;
+    BinSerde::deserialize(rint_load, "test.data");
+    cout << rint_load << endl;
+    assert(rint_load == 5);
     // ================================================================================basic types and nested containers
     string sa = "112233";
     string sb;

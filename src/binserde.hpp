@@ -1,9 +1,11 @@
 #pragma once
+// TODO: using static_assert to generate more readable compiling errors
+// TODO: forward items of a object to avoid redundant copy/moves
 // compile time type checkings
 #include "common.hpp"
 namespace Serde::BinSerde {
 
-    namespace CustomSerde
+    namespace CustomSerde // TODO
     {
     } // reserved for non-instrusive serde template functions (TODO)
 
@@ -13,39 +15,40 @@ namespace Serde::BinSerde {
         // if actual=true, then actually write to the buffer;
         // otherwise, just return the size.
         // This is useful for pre-checking of the size before performing serialization.
+        // Use universal references for objects, but pass-by-value for wrapper pairs
 
         // declarations
         template <typename T>
-        class BinSer; // class for
+        class BinSer; // class for binary serde
         template <simple T>
-        int serialize2buf(Serde::byte* buf, const T& object, bool actual = true);
+        int serialize2buf(Serde::byte* buf, T&& object, bool actual = true);
         template <is_pair_like T>
-        int serialize2buf(Serde::byte* buf, const T& object, bool actual = true);
+        int serialize2buf(Serde::byte* buf, T&& object, bool actual = true);
         template <is_pointer_like T>
-        int serialize2buf(Serde::byte* buf, const T& object, bool actual = true);
-        template <container T> // !this including std::string type
-        int serialize2buf(Serde::byte* buf, const T& object, bool actual = true);
+        int serialize2buf(Serde::byte* buf, T&& object, bool actual = true);
+        template <container T> // !including std::string type
+        int serialize2buf(Serde::byte* buf, T&& object, bool actual = true);
         template <typename T>
         int serialize2buf(Serde::byte* buf, SizedPair<T> sp, bool actual = true);
         template <typename T>
         int serialize2buf(Serde::byte* buf, NameValuePair<T> nvp, bool actual = true);
 
         template <serdeable_class T>
-        int serialize2buf(Serde::byte* buf, T&& object, bool actual = true); // !Not const for this
+        int serialize2buf(Serde::byte* buf, T&& object, bool actual = true);
 
         // implementations
         template <simple T>
-        int serialize2buf(Serde::byte* buf, const T& object, bool actual)
+        int serialize2buf(Serde::byte* buf, T&& object, bool actual)
         {
             int size = sizeof(object);
             if (actual)
-                memcpy(buf, (Serde::byte*)&object, sizeof(object));
+                memcpy(buf, static_cast<const void*>(&object), sizeof(object));
             return size;
         }
 
         template <is_pair_like T>
-        int serialize2buf(Serde::byte* buf, const T& object, bool actual)
-        {
+        int serialize2buf(Serde::byte* buf, T&& object, bool actual)
+        { // !how to forward? Or it makes non-sense here?
             int size = 0;
             size += serialize2buf(buf + size, object.first, actual);
             size += serialize2buf(buf + size, object.second, actual);
@@ -53,19 +56,19 @@ namespace Serde::BinSerde {
         }
 
         template <is_pointer_like T>
-        int serialize2buf(Serde::byte* buf, const T& object, bool actual)
+        int serialize2buf(Serde::byte* buf, T&& object, bool actual)
         {
-            return serialize2buf(buf, (*object), actual);
+            return serialize2buf(buf, (*std::forward<T>(object)), actual);
         }
 
 
         template <container T>
-        int serialize2buf(Serde::byte* buf, const T& object, bool actual)
+        int serialize2buf(Serde::byte* buf, T&& object, bool actual)
         {
             int size = 0;
             int cnt = object.size();
             size += serialize2buf(buf + size, cnt, actual);
-            for (auto item : object)
+            for (auto&& item : object)
             {
                 size += serialize2buf(buf + size, item, actual);
             }
@@ -78,7 +81,7 @@ namespace Serde::BinSerde {
             // this serialize a sequence of items with each size=sizeof(object)
             int size = 0;
             size += serialize2buf(buf + size, sp.size, actual);
-            for (int ofs = 0; ofs < sp.size; ofs++)
+            for (auto ofs = 0u; ofs < sp.size; ofs++)
                 size += serialize2buf(buf + size, *(sp.elem + ofs), actual);
             return size;
         }
@@ -229,7 +232,7 @@ namespace Serde::BinSerde {
             int size = 0;
             std::size_t cnt;
             size += deserialize_from(buf + size, cnt);
-            for (int i = 0;i < cnt;i++)
+            for (auto i = 0u;i < cnt;i++)
                 size += deserialize_from(buf + size, *(object.elem + i));
             return size;
         }
