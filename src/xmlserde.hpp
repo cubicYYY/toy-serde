@@ -53,12 +53,12 @@ namespace Serde::XmlSerde {
             parent->InsertEndChild(element);
         }
 
-        template <is_pair_like T>
+        template <is_pair_like T> // FIXME: should we somehow forward it here?
         void serialize2xml(XMLDocument& doc, XMLElement* parent, T&& object, const char* key_name, int flags)
         {
             XMLElement* element = doc.NewElement(key_name ? key_name : "pair");
-            serialize2xml(doc, element, object.first, "first", flags);
-            serialize2xml(doc, element, object.second, "second", flags);
+            serialize2xml(doc, element, Serde::forward_item<T>(object.first), "first", flags);
+            serialize2xml(doc, element, Serde::forward_item<T>(object.second), "second", flags);
             parent->InsertEndChild(element);
         }
 

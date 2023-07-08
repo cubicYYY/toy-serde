@@ -58,6 +58,11 @@ int main()
     BinSerde::deserialize(rint_load, "test.data");
     cout << rint_load << endl;
     assert(rint_load == 5);
+
+    BinSerde::serialize(make_pair(1,888), "test.data");
+    decltype(make_pair(1,888)) rpair_load;
+    BinSerde::deserialize(rpair_load, "test.data");
+    cout << "(" << rpair_load.first <<","<<rpair_load.second <<")" << endl;
     // ================================================================================basic types and nested containers
     string sa = "112233";
     string sb;

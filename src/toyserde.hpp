@@ -34,21 +34,20 @@ namespace Serde::BinSerde {
         // header
         int size = Serde::BinSerde::serialize2buf(nullptr, std::forward<T>(object), false); // get size
         if (size <= 0 || size >= MAX_SERDE_SIZE) throw std::logic_error("Invalid serialization size.");
-        auto buf = new Serde::byte[size + 1];
-        Serde::BinSerde::serialize2buf(buf, std::forward<T>(object));
-        buf[size] = '\0';
+        std::unique_ptr<Serde::byte> buf(new Serde::byte[size + 1]);
+        Serde::BinSerde::serialize2buf(buf.get(), std::forward<T>(object));
+        buf.get()[size] = '\0';
         if (flags & Serde::SERDE_B64) {
-            auto base64ed = Serde::b64encode((unsigned char*)buf, size);
+            auto base64ed = Serde::b64encode((unsigned char*)(buf.get()), size);
             fout.write(base64ed.c_str(), base64ed.size());
         }
         else {
             Serde::byte header[SERDE_HEADER_SIZE];
             fill_header(&header, flags, size);
             fout.write((char*)header, SERDE_HEADER_SIZE);
-            fout.write((char*)buf, size);
+            fout.write((char*)(buf.get()), size);
         }
         fout.close();
-        delete[] buf;
         return true;
     }
 

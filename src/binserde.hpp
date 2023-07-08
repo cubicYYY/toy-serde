@@ -1,6 +1,7 @@
 #pragma once
 // TODO: using static_assert to generate more readable compiling errors
 // TODO: forward items of a object to avoid redundant copy/moves
+// TODO: Wrap the buf into a class
 // compile time type checkings
 #include "common.hpp"
 namespace Serde::BinSerde {
@@ -48,10 +49,10 @@ namespace Serde::BinSerde {
 
         template <is_pair_like T>
         int serialize2buf(Serde::byte* buf, T&& object, bool actual)
-        { // !how to forward? Or it makes non-sense here?
+        {
             int size = 0;
-            size += serialize2buf(buf + size, object.first, actual);
-            size += serialize2buf(buf + size, object.second, actual);
+            size += serialize2buf(buf + size, Serde::forward_item<T>(object.first), actual);
+            size += serialize2buf(buf + size, Serde::forward_item<T>(object.second), actual);
             return size;
         }
 

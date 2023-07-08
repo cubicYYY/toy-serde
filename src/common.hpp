@@ -19,6 +19,18 @@ namespace Serde {// flags
     const int SERDE_XML = 1; // use XML format(binary format if not specified) 
     const int SERDE_B64 = 2; // use base64 encoding(raw string if not specified), only applied to strings in XML 
 
+    // Forward element by checking l/r value property of its container.
+    // Usage: f(forward_item<T>(v[i]));
+    struct element_be_forwarded {
+        template<class T, class U>
+        using type = std::conditional_t<std::is_lvalue_reference<T>::value, std::remove_reference_t<U>&, std::remove_reference_t<U>&&>;
+    };
+
+    template<class T, class U>
+    element_be_forwarded::type<T, U> forward_item(U&& u) {
+        return std::forward<element_be_forwarded::type<T, U>>(std::forward<U>(u));
+    }
+
 
     // NOTE: we use `decay` to ignore const/volatile and refs
     template <typename T>
@@ -110,7 +122,7 @@ namespace Serde {// flags
 
     template <typename T> // otherwise do nothing but return false
         requires (!can_reserve<T>)
-    bool try2reserve([[maybe_unused]]T&& container, [[maybe_unused]]std::size_t n) { return false; };
+    bool try2reserve([[maybe_unused]] T&& container, [[maybe_unused]] std::size_t n) { return false; };
 
     // Helper classes
     template <typename T>
